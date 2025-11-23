@@ -16,6 +16,7 @@ export const MagicLinkLanding: React.FC<MagicLinkLandingProps> = ({ quote, onBac
     const resteCharge = Math.max(0, quote.total - baseRemboursement);
     const monthly = Math.max(25, Math.ceil(resteCharge / 4));
     const expiry = quote.linkExpiresAt ? new Date(quote.linkExpiresAt) : null;
+    const actForSimulator = quote.acts[0];
 
     return (
         <div className="min-h-screen bg-slate-50">
@@ -136,7 +137,13 @@ export const MagicLinkLanding: React.FC<MagicLinkLandingProps> = ({ quote, onBac
 
                 <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2">
-                        <InactionSimulator acts={quote.acts} />
+                        {actForSimulator ? (
+                            <InactionSimulator act={actForSimulator} currentPrice={actForSimulator.price_avg_province || 0} />
+                        ) : (
+                            <div className="rounded-3xl border border-slate-200 bg-white p-6 text-slate-600">
+                                Aucun acte détecté pour simuler l'inaction.
+                            </div>
+                        )}
                     </div>
                     <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-soft space-y-4">
                         <div className="flex items-center space-x-3">

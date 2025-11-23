@@ -1,87 +1,108 @@
 import type { CCAMAct } from '../types';
 
-export interface InactionStep {
-    label: string;
-    delay: string;
-    cost: number;
-    pain: 'faible' | 'modérée' | 'élevée';
-    note: string;
-}
-
 export interface InactionScenario {
-    key: string;
-    title: string;
-    summary: string;
-    steps: InactionStep[];
-    codePrefixes?: string[];
-    categories?: CCAMAct['category'][];
+    futureCondition: string;
+    futureTreatment: string;
+    futurePrice: number;
+    reimbursed: boolean;
+    painLevel: number; // 1-10
+    complexity: number; // 1-10
+    description: string;
+    timeframe: string; // "1 an" | "2 ans"
 }
 
-const scenarios: InactionScenario[] = [
-    {
-        key: 'implant',
-        title: 'Reporter un implant',
-        summary: "Un implant repoussé finit souvent en extraction + greffe osseuse.",
-        codePrefixes: ['HBLD', 'HBMD', 'HBFD'],
-        categories: ['implantologie', 'chirurgie'],
-        steps: [
-            { label: 'Petite lésion', delay: 'Aujourd’hui', cost: 50, pain: 'faible', note: 'Surveillance + hygiène renforcée.' },
-            { label: 'Infection locale', delay: '3-6 mois', cost: 180, pain: 'modérée', note: 'Antibiotiques + urgence.' },
-            { label: 'Perte d’os', delay: '9-12 mois', cost: 850, pain: 'élevée', note: 'Dévitalisation + couronne provisoire.' },
-            { label: 'Extraction + implant', delay: '18-24 mois', cost: 1900, pain: 'élevée', note: 'Implant + greffe osseuse + couronne.' },
-        ],
-    },
-    {
-        key: 'couronne',
-        title: 'Retarder une couronne',
-        summary: "Une dent fissurée non protégée finit souvent en dévitalisation.",
-        codePrefixes: ['HBLA', 'HBJD', 'HBLF'],
-        categories: ['prothese', 'esthetique'],
-        steps: [
-            { label: 'Fissure stable', delay: 'Aujourd’hui', cost: 80, pain: 'faible', note: 'Surveillance + contention possible.' },
-            { label: 'Hypersensibilité', delay: '6 mois', cost: 220, pain: 'modérée', note: 'Pose provisoire + traitement anti-douleur.' },
-            { label: 'Pulpite', delay: '9-12 mois', cost: 650, pain: 'élevée', note: 'Dévitalisation + inlay-core.' },
-            { label: 'Fracture', delay: '18 mois', cost: 1200, pain: 'élevée', note: 'Extraction + implant ou bridge.' },
-        ],
-    },
-    {
-        key: 'carie',
-        title: 'Ignorer une carie',
-        summary: "Une carie simple devient une pulpite puis une infection.",
-        categories: ['soin', 'prevention'],
-        steps: [
-            { label: 'Caries débutantes', delay: 'Aujourd’hui', cost: 60, pain: 'faible', note: 'Composites superficiels.' },
-            { label: 'Carie profonde', delay: '6 mois', cost: 180, pain: 'modérée', note: 'Soins multiples, anesthésie.' },
-            { label: 'Pulpite', delay: '9 mois', cost: 450, pain: 'élevée', note: 'Dévitalisation complète.' },
-            { label: 'Infection', delay: '12-18 mois', cost: 900, pain: 'élevée', note: 'Reprise de racine ou extraction.' },
-        ],
-    },
-];
-
-const defaultScenario: InactionScenario = {
-    key: 'default',
-    title: 'Attendre fait gonfler la note',
-    summary: "Même un acte simple devient plus lourd avec le temps.",
-    steps: [
-        { label: 'Situation stable', delay: 'Aujourd’hui', cost: 60, pain: 'faible', note: 'Contrôle + hygiène.' },
-        { label: 'Aggravation', delay: '6 mois', cost: 220, pain: 'modérée', note: 'Soins + médication.' },
-        { label: 'Complication', delay: '12 mois', cost: 800, pain: 'élevée', note: 'Chirurgie ou prothèse.' },
-    ],
+const buildPrice = (base: number, factor: number, currentPrice?: number) => {
+    if (currentPrice && currentPrice > 0) {
+        return Math.max(base, Math.round(currentPrice * factor));
+    }
+    return base;
 };
 
-export const getScenarioForActs = (acts: CCAMAct[]): InactionScenario => {
-    const mainAct = acts[0];
-    if (!mainAct) return defaultScenario;
+export const getInactionScenario = (act: CCAMAct, currentPrice?: number): InactionScenario => {
+    // Logic based on act category or keywords
+    const lowerLabel = act.label_patient.toLowerCase();
+    const lowerTech = act.label_technical.toLowerCase();
 
-    const byCode = scenarios.find(scenario =>
-        scenario.codePrefixes?.some(prefix => mainAct.code.startsWith(prefix))
-    );
-    if (byCode) return byCode;
+    // 1. Scenario: Soin Carieux (Conservative) -> Dévitalisation + Couronne
+    if (
+        lowerLabel.includes('carie') ||
+        lowerLabel.includes('obturation') ||
+        lowerLabel.includes('composite') ||
+        lowerTech.includes('restauration')
+    ) {
+        return {
+            futureCondition: "Nécrose de la dent",
+            futureTreatment: "Dévitalisation + Couronne + Inlay-Core",
+            futurePrice: buildPrice(950, 2.5, currentPrice), // Approx: 600 (Couronne) + 300 (IC + Endo)
+            reimbursed: true, // Partially, but high reste à charge usually
+            painLevel: 8,
+            complexity: 6,
+            description: "La carie va atteindre le nerf. La douleur sera intense (rage de dent) et la dent deviendra cassante, nécessitant une couronne.",
+            timeframe: "6 mois - 1 an"
+        };
+    }
 
-    const byCategory = scenarios.find(scenario =>
-        scenario.categories?.includes(mainAct.category)
-    );
-    if (byCategory) return byCategory;
+    // 2. Scenario: Extraction -> Perte Osseuse + Implant
+    if (
+        lowerLabel.includes('extraction') ||
+        lowerLabel.includes('avulsion')
+    ) {
+        return {
+            futureCondition: "Perte osseuse & Déplacement des dents",
+            futureTreatment: "Greffe osseuse + Implant + Couronne",
+            futurePrice: buildPrice(2200, 3, currentPrice), // Approx: 1000 (Implant) + 600 (Couronne) + 600 (Greffe)
+            reimbursed: false, // Implants generally not reimbursed
+            painLevel: 4, // Less pain, more functional issue
+            complexity: 9,
+            description: "Sans racine, l'os se résorbe. Les dents voisines se couchent. Pour remplacer la dent plus tard, il faudra une chirurgie lourde (greffe).",
+            timeframe: "1 an - 2 ans"
+        };
+    }
 
-    return defaultScenario;
+    // 3. Scenario: Détartrage/Gencive -> Parodontite
+    if (
+        lowerLabel.includes('détartrage') ||
+        lowerLabel.includes('gencive') ||
+        lowerLabel.includes('surfaçage')
+    ) {
+        return {
+            futureCondition: "Parodontite (Déchaussement)",
+            futureTreatment: "Surfaçage complet + Chirurgie parodontale",
+            futurePrice: buildPrice(1200, 2.2, currentPrice), // Non reimbursed perio treatments
+            reimbursed: false,
+            painLevel: 5,
+            complexity: 7,
+            description: "L'inflammation va détruire l'os de soutien. Les dents vont bouger et finiront par tomber spontanément.",
+            timeframe: "2 ans - 5 ans"
+        };
+    }
+
+    // 4. Scenario: Couronne/Prothèse -> Perte de la dent
+    if (
+        lowerLabel.includes('couronne') ||
+        lowerLabel.includes('bridge')
+    ) {
+        return {
+            futureCondition: "Fracture de la racine",
+            futureTreatment: "Extraction + Implant",
+            futurePrice: buildPrice(1800, 2.4, currentPrice),
+            reimbursed: false,
+            painLevel: 6,
+            complexity: 8,
+            description: "La dent fragilisée risque de se fendre verticalement. Elle sera alors impossible à sauver et devra être extraite.",
+            timeframe: "1 an - 3 ans"
+        };
+    }
+
+    // 5. Fallback: aggravation silencieuse mais chère
+    return {
+        futureCondition: "Aggravation et perte de matière",
+        futureTreatment: "Traitement complet + Couronne ou Implant",
+        futurePrice: buildPrice(1500, 3, currentPrice),
+        reimbursed: false,
+        painLevel: 6,
+        complexity: 7,
+        description: "Sans intervention, la situation dégénère : plus d'inflammation, d'os perdu, et un traitement prothétique ou implantaire devient inévitable.",
+        timeframe: "1 an - 2 ans"
+    };
 };

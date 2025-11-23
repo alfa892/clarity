@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle, AlertCircle, PlayCircle, ArrowRight, ShieldCheck } from 'lucide-react';
+import { CheckCircle, PlayCircle, ArrowRight, ShieldCheck } from 'lucide-react';
 import type { CCAMAct } from '../types';
 import { InactionSimulator } from './InactionSimulator';
 import { GoodBetterBest } from './GoodBetterBest';
@@ -119,21 +119,7 @@ export const ResultPage: React.FC<ResultPageProps> = ({ act, onBack }) => {
                     </p>
                 </motion.div>
 
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.25 }}
-                    className="bg-white rounded-3xl shadow-soft border border-slate-100 p-4"
-                >
-                    <div className="flex items-center justify-between mb-3 px-1">
-                        <div className="flex items-center space-x-2">
-                            <AlertCircle size={18} className="text-orange-500" />
-                            <h3 className="text-lg font-bold text-slate-900">Si je ne fais rien</h3>
-                        </div>
-                        <span className="text-xs text-slate-400 font-semibold">Timeline prédictive</span>
-                    </div>
-                    <InactionSimulator acts={[act]} compact />
-                </motion.div>
+                <InactionSimulator act={act} currentPrice={act.price_avg_province || 0} />
 
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
