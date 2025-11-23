@@ -153,12 +153,13 @@ function App() {
       )}
 
       {view === 'home' && (
-        <>
-          <HomePage onNavigate={setView} />
-          <div className="fixed bottom-4 right-4 opacity-20 hover:opacity-100 transition-opacity">
-            <button onClick={handleDentistAccess} className="text-xs text-slate-400">Accès Praticien</button>
-          </div>
-        </>
+        <HomePage onNavigate={(page) => {
+          if (page === 'login') {
+            handleDentistAccess();
+          } else {
+            setView(page);
+          }
+        }} />
       )}
 
       {view === 'scan' && (
